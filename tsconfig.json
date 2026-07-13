@@ -19,6 +19,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".docs/components/create-board-dialog.tsx", ".docs/components/create-task-dialog.tsx", ".docs/components/invite-member-dialog.tsx", ".docs/components/kanban-list.tsx", ".docs/components/notification-bell.tsx", ".docs/components/task-card.tsx", ".docs/components/task-detail-dialog.tsx", ".docs/components/board-card.tsx", ".docs/components/providers.tsx", ".docs/components/use-auth.tsx", ".docs/components/navbar.tsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".docs/components/create-board-dialog.tsx", ".docs/components/create-task-dialog.tsx", ".docs/components/invite-member-dialog.tsx", ".docs/components/kanban-list.tsx", ".docs/components/notification-bell.tsx", ".docs/components/task-card.tsx", ".docs/components/task-detail-dialog.tsx", ".docs/components/board-card.tsx", "src/providers.tsx", "src/hooks/use-auth.tsx", ".docs/components/navbar.tsx"],
   "exclude": ["node_modules"]
 }
