@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationBell } from "@/components/notification-bell";
 
 export function Navbar() {
   const { user, logout } = useAuth();
@@ -41,6 +42,7 @@ export function Navbar() {
       </Link>
 
       <div className="flex items-center gap-1">
+        <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger className="ml-1 flex items-center gap-2 rounded-md p-1 outline-none hover:bg-ink/5">
             <Avatar>
