@@ -11,6 +11,7 @@ import { listSchema } from "@/lib/validations";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import { KanbanList } from "@/components/kanban-list";
 import { TaskDetailDialog } from "@/components/task-detail-dialog";
 import { initials } from "@/lib/utils";
@@ -143,6 +144,7 @@ export default function BoardDetailPage() {
               </Avatar>
             ))}
           </div>
+          <InviteMemberDialog boardId={boardId} onInvited={setBoard} />
         </div>
       </div>
 
