@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".docs/components/create-board-dialog.tsx", ".docs/components/create-task-dialog.tsx", ".docs/components/invite-member-dialog.tsx", ".docs/components/kanban-list.tsx", ".docs/components/notification-bell.tsx", ".docs/components/task-card.tsx", ".docs/components/task-detail-dialog.tsx", ".docs/components/board-card.tsx", "src/providers.tsx", "src/hooks/use-auth.tsx", ".docs/components/navbar.tsx"],
+  "exclude": ["node_modules"]
+}
