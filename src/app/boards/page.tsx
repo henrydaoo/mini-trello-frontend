@@ -7,6 +7,7 @@ import { boardApi } from "@/lib/api";
 import { extractErrorMessage } from "@/lib/api-client";
 import type { BoardResponse } from "@/lib/types";
 import { BoardCard } from "@/components/board-card";
+import { CreateBoardDialog } from "@/components/create-board-dialog";
 
 export default function BoardsPage() {
   const [boards, setBoards] = useState<BoardResponse[] | null>(null);
@@ -28,6 +29,7 @@ export default function BoardsPage() {
           <h1 className="font-display text-2xl font-semibold text-ink">Your boards</h1>
           <p className="text-sm text-ink-muted">Everything you own or have been invited to.</p>
         </div>
+        <CreateBoardDialog onCreated={(board) => setBoards((prev) => [board, ...(prev ?? [])])} />
       </div>
 
       {boards === null ? (
