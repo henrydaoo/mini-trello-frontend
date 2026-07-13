@@ -17,7 +17,7 @@ import {
   listApiReal,
   notificationApiReal,
   taskApiReal,
-} from "../../.docs/lib/api-real";
+} from "./api-real";
 
 export const authApi = USE_MOCK_API ? authApiMock : authApiReal;
 export const boardApi = USE_MOCK_API ? boardApiMock : boardApiReal;
