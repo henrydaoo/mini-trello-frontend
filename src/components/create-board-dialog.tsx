@@ -5,10 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { boardApi } from "@/lib/api";
+import { useCreateBoard } from "@/hooks/queries/use-boards";
 import { extractErrorMessage } from "@/lib/api-client";
 import { boardSchema, type BoardInput } from "@/lib/validations";
-import type { BoardResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,13 +21,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-interface CreateBoardDialogProps {
-  onCreated: (board: BoardResponse) => void;
-}
-
-export function CreateBoardDialog({ onCreated }: CreateBoardDialogProps) {
+export function CreateBoardDialog() {
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createBoard = useCreateBoard();
   const {
     register,
     handleSubmit,
@@ -36,19 +31,18 @@ export function CreateBoardDialog({ onCreated }: CreateBoardDialogProps) {
     formState: { errors },
   } = useForm<BoardInput>({ resolver: zodResolver(boardSchema) });
 
-  async function onSubmit(data: BoardInput) {
-    setIsSubmitting(true);
-    try {
-      const board = await boardApi.create(data.name, data.description ?? "");
-      onCreated(board);
-      toast.success("Board created");
-      setOpen(false);
-      reset();
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    } finally {
-      setIsSubmitting(false);
-    }
+  function onSubmit(data: BoardInput) {
+    createBoard.mutate(
+      { name: data.name, description: data.description ?? "" },
+      {
+        onSuccess: () => {
+          toast.success("Board created");
+          setOpen(false);
+          reset();
+        },
+        onError: (error) => toast.error(extractErrorMessage(error)),
+      }
+    );
   }
 
   return (
@@ -75,8 +69,8 @@ export function CreateBoardDialog({ onCreated }: CreateBoardDialogProps) {
             {errors.description && <p className="text-xs text-danger-500">{errors.description.message}</p>}
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating…" : "Create board"}
+            <Button type="submit" disabled={createBoard.isPending}>
+              {createBoard.isPending ? "Creating…" : "Create board"}
             </Button>
           </DialogFooter>
         </form>

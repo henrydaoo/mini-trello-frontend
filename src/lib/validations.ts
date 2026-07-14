@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-// Every rule here mirrors a @NotBlank/@Size/@Email annotation on the matching
-// backend DTO (see mini-trello-backend/src/main/java/com/minitrello/dto). Keeping
-// them in sync means the user sees the same validation message on the client
-// that the server would otherwise return in `fieldErrors`.
-
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { MoreHorizontal, Trash2, Pencil } from "lucide-react";
-import { listApi } from "@/lib/api";
+import { useDeleteList, useRenameList } from "@/hooks/queries/use-lists";
 import { extractErrorMessage } from "@/lib/api-client";
 import type { BoardMemberResponse, TaskListResponse, TaskResponse } from "@/lib/types";
 import { TaskCard } from "@/components/task-card";
@@ -22,46 +22,36 @@ interface KanbanListProps {
   tasks: TaskResponse[];
   members: BoardMemberResponse[];
   onTaskClick: (task: TaskResponse) => void;
-  onTaskCreated: (task: TaskResponse) => void;
-  onListRenamed: (list: TaskListResponse) => void;
-  onListDeleted: (listId: number) => void;
 }
 
-export function KanbanList({
-  list,
-  tasks,
-  members,
-  onTaskClick,
-  onTaskCreated,
-  onListRenamed,
-  onListDeleted,
-}: KanbanListProps) {
+export function KanbanList({ list, tasks, members, onTaskClick }: KanbanListProps) {
+  const renameList = useRenameList(list.boardId);
+  const deleteList = useDeleteList(list.boardId);
   const [isRenaming, setIsRenaming] = useState(false);
   const [name, setName] = useState(list.name);
 
-  async function saveRename() {
+  function saveRename() {
     setIsRenaming(false);
     if (!name.trim() || name === list.name) {
       setName(list.name);
       return;
     }
-    try {
-      const updated = await listApi.rename(list.id, name.trim());
-      onListRenamed(updated);
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-      setName(list.name);
-    }
+    renameList.mutate(
+      { listId: list.id, name: name.trim() },
+      {
+        onError: (error) => {
+          toast.error(extractErrorMessage(error));
+          setName(list.name);
+        },
+      }
+    );
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!window.confirm(`Delete list "${list.name}" and all its tasks?`)) return;
-    try {
-      await listApi.remove(list.id);
-      onListDeleted(list.id);
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    }
+    deleteList.mutate(list.id, {
+      onError: (error) => toast.error(extractErrorMessage(error)),
+    });
   }
 
   return (
@@ -111,7 +101,7 @@ export function KanbanList({
       </div>
 
       <div className="mt-1 px-1">
-        <CreateTaskDialog listId={list.id} members={members} onCreated={onTaskCreated} />
+        <CreateTaskDialog listId={list.id} members={members} />
       </div>
     </div>
   );

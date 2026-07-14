@@ -1,26 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { LayoutGrid } from "lucide-react";
-import { boardApi } from "@/lib/api";
-import { extractErrorMessage } from "@/lib/api-client";
-import type { BoardResponse } from "@/lib/types";
+import { useBoardsQuery } from "@/hooks/queries/use-boards";
 import { BoardCard } from "@/components/board-card";
 import { CreateBoardDialog } from "@/components/create-board-dialog";
 
 export default function BoardsPage() {
-  const [boards, setBoards] = useState<BoardResponse[] | null>(null);
-
-  useEffect(() => {
-    boardApi
-      .list()
-      .then(setBoards)
-      .catch((error) => {
-        toast.error(extractErrorMessage(error));
-        setBoards([]);
-      });
-  }, []);
+  const { data: boards, isLoading } = useBoardsQuery();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -29,12 +15,12 @@ export default function BoardsPage() {
           <h1 className="font-display text-2xl font-semibold text-ink">Your boards</h1>
           <p className="text-sm text-ink-muted">Everything you own or have been invited to.</p>
         </div>
-        <CreateBoardDialog onCreated={(board) => setBoards((prev) => [board, ...(prev ?? [])])} />
+        <CreateBoardDialog />
       </div>
 
-      {boards === null ? (
+      {isLoading ? (
         <p className="text-sm text-ink-muted">Loading boards…</p>
-      ) : boards.length === 0 ? (
+      ) : !boards || boards.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-20 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-moss-100 text-moss-600">
             <LayoutGrid className="h-6 w-6" />
@@ -47,11 +33,7 @@ export default function BoardsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {boards.map((board) => (
-            <BoardCard
-              key={board.id}
-              board={board}
-              onDeleted={(id) => setBoards((prev) => (prev ?? []).filter((b) => b.id !== id))}
-            />
+            <BoardCard key={board.id} board={board} />
           ))}
         </div>
       )}
