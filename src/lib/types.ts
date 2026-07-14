@@ -1,5 +1,3 @@
-// Mirrors com.minitrello.dto.* on the backend, field for field.
-
 export type Role = "USER" | "ADMIN";
 export type NotificationPreference = "EMAIL" | "IN_APP";
 export type Priority = "LOW" | "MEDIUM" | "HIGH";
@@ -82,19 +80,4 @@ export interface ApiErrorBody {
   message: string;
   path: string;
   fieldErrors?: Record<string, string>;
-}
-
-export interface TaskCreatePayload {
-  title: string;
-  description?: string;
-  assigneeId?: number | null;
-  priority: Priority;
-  dueDate?: string | null;
-}
-
-export interface TaskUpdatePayload {
-  title: string;
-  description?: string;
-  priority: Priority;
-  dueDate?: string | null;
 }

@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Plus } from "lucide-react";
-import { boardApi, listApi, taskApi } from "@/lib/api";
+import { useBoardQuery } from "@/hooks/queries/use-board";
+import { useCreateList, useListsQuery } from "@/hooks/queries/use-lists";
+import { useTasksForLists } from "@/hooks/queries/use-tasks";
 import { extractErrorMessage } from "@/lib/api-client";
-import type { BoardResponse, TaskListResponse, TaskResponse } from "@/lib/types";
 import { listSchema } from "@/lib/validations";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -21,105 +22,51 @@ export default function BoardDetailPage() {
   const boardId = Number(params.boardId);
   const router = useRouter();
 
-  const [board, setBoard] = useState<BoardResponse | null>(null);
-  const [lists, setLists] = useState<TaskListResponse[]>([]);
-  const [tasksByListId, setTasksByListId] = useState<Record<number, TaskResponse[]>>({});
-  const [selectedTask, setSelectedTask] = useState<TaskResponse | null>(null);
+  const boardQuery = useBoardQuery(boardId);
+  const listsQuery = useListsQuery(boardId);
+  const lists = listsQuery.data ?? [];
+  const { tasksByListId } = useTasksForLists(lists.map((l) => l.id));
+
+  const createList = useCreateList(boardId);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+
+  const board = boardQuery.data;
 
   const members = useMemo(() => {
     if (!board) return [];
     return [{ userId: board.ownerId, username: board.ownerUsername, email: "" }, ...board.members];
   }, [board]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const selectedTask = useMemo(() => {
+    if (selectedTaskId == null) return null;
+    return Object.values(tasksByListId).flat().find((t) => t.id === selectedTaskId) ?? null;
+  }, [selectedTaskId, tasksByListId]);
 
-    async function load() {
-      try {
-        const [boardData, listData] = await Promise.all([boardApi.get(boardId), listApi.listForBoard(boardId)]);
-        if (cancelled) return;
-        setBoard(boardData);
-        setLists(listData.sort((a, b) => a.position - b.position));
-
-        const taskLists = await Promise.all(listData.map((l) => taskApi.listForList(l.id)));
-        if (cancelled) return;
-        const map: Record<number, TaskResponse[]> = {};
-        listData.forEach((l, i) => {
-          map[l.id] = taskLists[i].sort((a, b) => a.position - b.position);
-        });
-        setTasksByListId(map);
-      } catch (error) {
-        toast.error(extractErrorMessage(error));
-        router.push("/boards");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [boardId, router]);
-
-  async function handleAddList() {
+  function handleAddList() {
     const parsed = listSchema.safeParse({ name: newListName });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
     }
-    try {
-      const list = await listApi.create(boardId, newListName.trim());
-      setLists((prev) => [...prev, list]);
-      setTasksByListId((prev) => ({ ...prev, [list.id]: [] }));
-      setNewListName("");
-      setIsAddingList(false);
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    }
-  }
-
-  function handleTaskCreated(listId: number, task: TaskResponse) {
-    setTasksByListId((prev) => ({ ...prev, [listId]: [...(prev[listId] ?? []), task] }));
-  }
-
-  function handleTaskUpdated(updated: TaskResponse) {
-    setTasksByListId((prev) => ({
-      ...prev,
-      [updated.listId]: (prev[updated.listId] ?? []).map((t) => (t.id === updated.id ? updated : t)),
-    }));
-    setSelectedTask(updated);
-  }
-
-  function handleTaskMoved(updated: TaskResponse, fromListId: number) {
-    setTasksByListId((prev) => ({
-      ...prev,
-      [fromListId]: (prev[fromListId] ?? []).filter((t) => t.id !== updated.id),
-      [updated.listId]: [...(prev[updated.listId] ?? []), updated],
-    }));
-    setSelectedTask(updated);
-  }
-
-  function handleTaskDeleted(taskId: number, listId: number) {
-    setTasksByListId((prev) => ({ ...prev, [listId]: (prev[listId] ?? []).filter((t) => t.id !== taskId) }));
-  }
-
-  function handleListRenamed(updated: TaskListResponse) {
-    setLists((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
-  }
-
-  function handleListDeleted(listId: number) {
-    setLists((prev) => prev.filter((l) => l.id !== listId));
-    setTasksByListId((prev) => {
-      const { [listId]: _removed, ...rest } = prev;
-      return rest;
+    createList.mutate(newListName.trim(), {
+      onSuccess: () => {
+        setNewListName("");
+        setIsAddingList(false);
+      },
+      onError: (error) => toast.error(extractErrorMessage(error)),
     });
   }
 
-  if (isLoading || !board) {
+  useEffect(() => {
+    if (boardQuery.isError) {
+      toast.error(extractErrorMessage(boardQuery.error));
+      router.push("/boards");
+    }
+  }, [boardQuery.isError, boardQuery.error, router]);
+
+  if (boardQuery.isLoading || !board) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8">
         <p className="text-sm text-ink-muted">Loading board…</p>
@@ -144,7 +91,7 @@ export default function BoardDetailPage() {
               </Avatar>
             ))}
           </div>
-          <InviteMemberDialog boardId={boardId} onInvited={setBoard} />
+          <InviteMemberDialog boardId={boardId} />
         </div>
       </div>
 
@@ -155,10 +102,7 @@ export default function BoardDetailPage() {
             list={list}
             tasks={tasksByListId[list.id] ?? []}
             members={members}
-            onTaskClick={setSelectedTask}
-            onTaskCreated={(task) => handleTaskCreated(list.id, task)}
-            onListRenamed={handleListRenamed}
-            onListDeleted={handleListDeleted}
+            onTaskClick={(task) => setSelectedTaskId(task.id)}
           />
         ))}
 
@@ -173,7 +117,7 @@ export default function BoardDetailPage() {
                 onKeyDown={(e) => e.key === "Enter" && handleAddList()}
               />
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleAddList}>
+                <Button size="sm" onClick={handleAddList} disabled={createList.isPending}>
                   Add list
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setIsAddingList(false)}>
@@ -197,13 +141,8 @@ export default function BoardDetailPage() {
           members={members}
           tasksByListId={tasksByListId}
           open={!!selectedTask}
-          onOpenChange={(open) => !open && setSelectedTask(null)}
-          onUpdated={handleTaskUpdated}
-          onDeleted={(taskId, listId) => {
-            handleTaskDeleted(taskId, listId);
-            setSelectedTask(null);
-          }}
-          onMoved={handleTaskMoved}
+          onOpenChange={(open) => !open && setSelectedTaskId(null)}
+          onDeleted={() => setSelectedTaskId(null)}
         />
       )}
     </div>

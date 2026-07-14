@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { LayoutGrid } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { extractErrorMessage } from "@/lib/api-client";
-import { USE_MOCK_API } from "@/lib/api";
 import { loginSchema, type LoginInput } from "@/lib/validations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,16 +43,6 @@ export default function LoginPage() {
           <h1 className="font-display text-2xl font-semibold text-ink">Mini Trello</h1>
           <p className="text-sm text-ink-muted">A small, focused board for tasks that actually need doing.</p>
         </div>
-
-        {USE_MOCK_API && (
-          <div className="mb-4 rounded-md border border-clay-400/30 bg-clay-400/10 px-3 py-2 text-xs text-clay-600">
-            <p className="font-medium">Demo mode — no backend connected</p>
-            <p className="mt-0.5">
-              Try <span className="font-mono">alice</span> / <span className="font-mono">password123</span> (or bob,
-              carol). Data lives in your browser only.
-            </p>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 rounded-lg border border-border bg-white p-6 shadow-card">
           <div className="flex flex-col gap-1.5">

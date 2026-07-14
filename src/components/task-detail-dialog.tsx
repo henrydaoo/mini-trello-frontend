@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Send, Trash2 } from "lucide-react";
-import { commentApi, taskApi } from "@/lib/api";
+import { useCommentsQuery, useCreateComment, useDeleteComment } from "@/hooks/queries/use-comments";
+import { useAssignTask, useDeleteTask, useMoveTask, useUpdateTask } from "@/hooks/queries/use-tasks";
 import { extractErrorMessage } from "@/lib/api-client";
 import { taskUpdateSchema, commentSchema, type TaskUpdateInput, type CommentInput } from "@/lib/validations";
-import type { BoardMemberResponse, CommentResponse, TaskListResponse, TaskResponse } from "@/lib/types";
+import type { BoardMemberResponse, TaskListResponse, TaskResponse } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { formatRelativeTime, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,8 @@ interface TaskDetailDialogProps {
   tasksByListId: Record<number, TaskResponse[]>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdated: (task: TaskResponse) => void;
-  onDeleted: (taskId: number, listId: number) => void;
-  onMoved: (task: TaskResponse, fromListId: number) => void;
+  /** Called after a successful delete so the parent can close/clear selection. */
+  onDeleted: () => void;
 }
 
 export function TaskDetailDialog({
@@ -41,16 +41,19 @@ export function TaskDetailDialog({
   tasksByListId,
   open,
   onOpenChange,
-  onUpdated,
   onDeleted,
-  onMoved,
 }: TaskDetailDialogProps) {
   const { user } = useAuth();
-  const [comments, setComments] = useState<CommentResponse[]>([]);
-  const [isSavingDetails, setIsSavingDetails] = useState(false);
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [isMoving, setIsMoving] = useState(false);
-  const [isCommenting, setIsCommenting] = useState(false);
+
+  const updateTask = useUpdateTask(task.listId);
+  const assignTask = useAssignTask(task.listId);
+  const moveTask = useMoveTask();
+  const deleteTask = useDeleteTask(task.listId);
+
+  const commentsQuery = useCommentsQuery(task.id, open);
+  const comments = commentsQuery.data ?? [];
+  const createComment = useCreateComment(task.id);
+  const deleteComment = useDeleteComment(task.id);
 
   const {
     register,
@@ -73,14 +76,6 @@ export function TaskDetailDialog({
     reset(toFormValues(task));
   }, [task, reset]);
 
-  useEffect(() => {
-    if (!open) return;
-    commentApi
-      .listForTask(task.id)
-      .then(setComments)
-      .catch((error) => toast.error(extractErrorMessage(error)));
-  }, [open, task.id]);
-
   function toFormValues(t: TaskResponse): TaskUpdateInput {
     return {
       title: t.title,
@@ -90,86 +85,70 @@ export function TaskDetailDialog({
     };
   }
 
-  async function onSaveDetails(data: TaskUpdateInput) {
-    setIsSavingDetails(true);
-    try {
-      const updated = await taskApi.update(task.id, {
-        title: data.title,
-        description: data.description || undefined,
-        priority: data.priority,
-        dueDate: data.dueDate || null,
-      });
-      onUpdated(updated);
-      toast.success("Task updated");
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    } finally {
-      setIsSavingDetails(false);
-    }
+  function onSaveDetails(data: TaskUpdateInput) {
+    updateTask.mutate(
+      {
+        taskId: task.id,
+        payload: {
+          title: data.title,
+          description: data.description || undefined,
+          priority: data.priority,
+          dueDate: data.dueDate || null,
+        },
+      },
+      {
+        onSuccess: () => toast.success("Task updated"),
+        onError: (error) => toast.error(extractErrorMessage(error)),
+      }
+    );
   }
 
-  async function handleAssigneeChange(value: string) {
-    setIsAssigning(true);
-    try {
-      const assigneeId = value === UNASSIGNED ? null : Number(value);
-      const updated = await taskApi.assign(task.id, assigneeId);
-      onUpdated(updated);
-      toast.success(assigneeId ? "Assignee updated — they'll be notified" : "Task unassigned");
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    } finally {
-      setIsAssigning(false);
-    }
+  function handleAssigneeChange(value: string) {
+    const assigneeId = value === UNASSIGNED ? null : Number(value);
+    assignTask.mutate(
+      { taskId: task.id, assigneeId },
+      {
+        onSuccess: () => toast.success(assigneeId ? "Assignee updated — they'll be notified" : "Task unassigned"),
+        onError: (error) => toast.error(extractErrorMessage(error)),
+      }
+    );
   }
 
-  async function handleMoveChange(targetListIdStr: string) {
+  function handleMoveChange(targetListIdStr: string) {
     const targetListId = Number(targetListIdStr);
     if (targetListId === task.listId) return;
-    setIsMoving(true);
-    try {
-      const position = (tasksByListId[targetListId] ?? []).length;
-      const updated = await taskApi.move(task.id, targetListId, position);
-      onMoved(updated, task.listId);
-      toast.success("Task moved");
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    } finally {
-      setIsMoving(false);
-    }
+    const position = (tasksByListId[targetListId] ?? []).length;
+    moveTask.mutate(
+      { taskId: task.id, sourceListId: task.listId, targetListId, position },
+      {
+        onSuccess: () => toast.success("Task moved"),
+        onError: (error) => toast.error(extractErrorMessage(error)),
+      }
+    );
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!window.confirm(`Delete task "${task.title}"? This can't be undone.`)) return;
-    try {
-      await taskApi.remove(task.id);
-      onDeleted(task.id, task.listId);
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    }
+    deleteTask.mutate(task.id, {
+      onSuccess: () => onDeleted(),
+      onError: (error) => toast.error(extractErrorMessage(error)),
+    });
   }
 
-  async function onAddComment(data: CommentInput) {
-    setIsCommenting(true);
-    try {
-      const comment = await commentApi.create(task.id, data.content);
-      setComments((prev) => [...prev, comment]);
-      resetComment({ content: "" });
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    } finally {
-      setIsCommenting(false);
-    }
+  function onAddComment(data: CommentInput) {
+    createComment.mutate(data.content, {
+      onSuccess: () => resetComment({ content: "" }),
+      onError: (error) => toast.error(extractErrorMessage(error)),
+    });
   }
 
-  async function handleDeleteComment(commentId: number) {
-    try {
-      await commentApi.remove(commentId);
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    }
+  function handleDeleteComment(commentId: number) {
+    deleteComment.mutate(commentId, {
+      onError: (error) => toast.error(extractErrorMessage(error)),
+    });
   }
+
+  const isBusy = assignTask.isPending || moveTask.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -218,8 +197,8 @@ export function TaskDetailDialog({
               </div>
 
               {isDirty && (
-                <Button type="submit" size="sm" className="self-start" disabled={isSavingDetails}>
-                  {isSavingDetails ? "Saving…" : "Save changes"}
+                <Button type="submit" size="sm" className="self-start" disabled={updateTask.isPending}>
+                  {updateTask.isPending ? "Saving…" : "Save changes"}
                 </Button>
               )}
             </form>
@@ -257,7 +236,7 @@ export function TaskDetailDialog({
 
               <form onSubmit={handleCommentSubmit(onAddComment)} className="flex items-start gap-2">
                 <Textarea placeholder="Write a comment…" rows={1} {...registerComment("content")} />
-                <Button type="submit" size="icon" disabled={isCommenting}>
+                <Button type="submit" size="icon" disabled={createComment.isPending}>
                   <Send className="h-4 w-4" />
                 </Button>
               </form>
@@ -270,7 +249,7 @@ export function TaskDetailDialog({
               <Select
                 value={task.assigneeId ? String(task.assigneeId) : UNASSIGNED}
                 onValueChange={handleAssigneeChange}
-                disabled={isAssigning}
+                disabled={isBusy}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Unassigned" />
@@ -288,7 +267,7 @@ export function TaskDetailDialog({
 
             <div className="flex flex-col gap-1.5">
               <Label>List</Label>
-              <Select value={String(task.listId)} onValueChange={handleMoveChange} disabled={isMoving}>
+              <Select value={String(task.listId)} onValueChange={handleMoveChange} disabled={isBusy}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

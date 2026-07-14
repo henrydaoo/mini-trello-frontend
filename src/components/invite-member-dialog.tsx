@@ -5,10 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { UserPlus } from "lucide-react";
-import { boardApi } from "@/lib/api";
+import { useInviteMember } from "@/hooks/queries/use-board";
 import { extractErrorMessage } from "@/lib/api-client";
 import { addMemberSchema, type AddMemberInput } from "@/lib/validations";
-import type { BoardResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,12 +23,11 @@ import {
 
 interface InviteMemberDialogProps {
   boardId: number;
-  onInvited: (board: BoardResponse) => void;
 }
 
-export function InviteMemberDialog({ boardId, onInvited }: InviteMemberDialogProps) {
+export function InviteMemberDialog({ boardId }: InviteMemberDialogProps) {
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const inviteMember = useInviteMember(boardId);
   const {
     register,
     handleSubmit,
@@ -37,19 +35,15 @@ export function InviteMemberDialog({ boardId, onInvited }: InviteMemberDialogPro
     formState: { errors },
   } = useForm<AddMemberInput>({ resolver: zodResolver(addMemberSchema) });
 
-  async function onSubmit(data: AddMemberInput) {
-    setIsSubmitting(true);
-    try {
-      const board = await boardApi.addMember(boardId, data.email);
-      onInvited(board);
-      toast.success(`Invited ${data.email}`);
-      setOpen(false);
-      reset();
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    } finally {
-      setIsSubmitting(false);
-    }
+  function onSubmit(data: AddMemberInput) {
+    inviteMember.mutate(data.email, {
+      onSuccess: () => {
+        toast.success(`Invited ${data.email}`);
+        setOpen(false);
+        reset();
+      },
+      onError: (error) => toast.error(extractErrorMessage(error)),
+    });
   }
 
   return (
@@ -72,8 +66,8 @@ export function InviteMemberDialog({ boardId, onInvited }: InviteMemberDialogPro
             {errors.email && <p className="text-xs text-danger-500">{errors.email.message}</p>}
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Inviting…" : "Send invite"}
+            <Button type="submit" disabled={inviteMember.isPending}>
+              {inviteMember.isPending ? "Inviting…" : "Send invite"}
             </Button>
           </DialogFooter>
         </form>

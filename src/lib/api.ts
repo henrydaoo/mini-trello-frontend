@@ -1,29 +1,118 @@
-/**
- * Single switch for the whole app: mock data vs. the real mini-trello-backend.
- *
- * Defaults to MOCK unless NEXT_PUBLIC_USE_MOCK_API is explicitly "false" — so a
- * fresh checkout with no .env.local still runs standalone. Once the backend is
- * ready, set NEXT_PUBLIC_USE_MOCK_API=false in .env.local (see .env.local.example)
- * and nothing else in the app needs to change — every component imports authApi /
- * boardApi / etc. from this file, never from api-real.ts or api-mock.ts directly.
- */
 export const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API !== "false";
+import { apiClient } from "./api-client";
+import type {
+  AuthResponse,
+  BoardResponse,
+  CommentResponse,
+  TaskListResponse,
+  TaskResponse,
+  UserResponse,
+} from "./types";
 
-import { authApiMock, boardApiMock, commentApiMock, listApiMock, notificationApiMock, taskApiMock } from "./api-mock";
-import {
-  authApiReal,
-  boardApiReal,
-  commentApiReal,
-  listApiReal,
-  notificationApiReal,
-  taskApiReal,
-} from "./api-real";
+import { notificationApiMock } from "./api-mock";
 
-export const authApi = USE_MOCK_API ? authApiMock : authApiReal;
-export const boardApi = USE_MOCK_API ? boardApiMock : boardApiReal;
-export const listApi = USE_MOCK_API ? listApiMock : listApiReal;
-export const taskApi = USE_MOCK_API ? taskApiMock : taskApiReal;
-export const commentApi = USE_MOCK_API ? commentApiMock : commentApiReal;
-export const notificationApi = USE_MOCK_API ? notificationApiMock : notificationApiReal;
+export const authApi = {
+  login: (username: string, password: string) =>
+    apiClient
+      .post<AuthResponse>("/auth/login", { username, password })
+      .then((r) => r.data),
+  register: (username: string, email: string, password: string) =>
+    apiClient
+      .post<UserResponse>("/auth/register", { username, email, password })
+      .then((r) => r.data),
+};
+
+export const boardApi = {
+  list: () => apiClient.get<BoardResponse[]>("/boards").then((r) => r.data),
+  get: (id: number) =>
+    apiClient.get<BoardResponse>(`/boards/${id}`).then((r) => r.data),
+  create: (name: string, description: string) =>
+    apiClient
+      .post<BoardResponse>("/boards", { name, description })
+      .then((r) => r.data),
+  update: (id: number, name: string, description: string) =>
+    apiClient
+      .put<BoardResponse>(`/boards/${id}`, { name, description })
+      .then((r) => r.data),
+  remove: (id: number) => apiClient.delete(`/boards/${id}`),
+  addMember: (boardId: number, email: string) =>
+    apiClient
+      .post<BoardResponse>(`/boards/${boardId}/members`, { email })
+      .then((r) => r.data),
+  removeMember: (boardId: number, userId: number) =>
+    apiClient.delete(`/boards/${boardId}/members/${userId}`),
+};
+
+export const listApi = {
+  listForBoard: (boardId: number) =>
+    apiClient
+      .get<TaskListResponse[]>(`/boards/${boardId}/lists`)
+      .then((r) => r.data),
+  create: (boardId: number, name: string) =>
+    apiClient
+      .post<TaskListResponse>(`/boards/${boardId}/lists`, { name })
+      .then((r) => r.data),
+  rename: (listId: number, name: string) =>
+    apiClient
+      .put<TaskListResponse>(`/lists/${listId}`, { name })
+      .then((r) => r.data),
+  reorder: (listId: number, position: number) =>
+    apiClient
+      .patch<TaskListResponse>(`/lists/${listId}/position`, { position })
+      .then((r) => r.data),
+  remove: (listId: number) => apiClient.delete(`/lists/${listId}`),
+};
+
+export interface TaskCreatePayload {
+  title: string;
+  description?: string;
+  assigneeId?: number | null;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  dueDate?: string | null;
+}
+
+export interface TaskUpdatePayload {
+  title: string;
+  description?: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  dueDate?: string | null;
+}
+
+export const taskApi = {
+  listForList: (listId: number) =>
+    apiClient.get<TaskResponse[]>(`/lists/${listId}/tasks`).then((r) => r.data),
+  create: (listId: number, payload: TaskCreatePayload) =>
+    apiClient
+      .post<TaskResponse>(`/lists/${listId}/tasks`, payload)
+      .then((r) => r.data),
+  get: (taskId: number) =>
+    apiClient.get<TaskResponse>(`/tasks/${taskId}`).then((r) => r.data),
+  update: (taskId: number, payload: TaskUpdatePayload) =>
+    apiClient
+      .put<TaskResponse>(`/tasks/${taskId}`, payload)
+      .then((r) => r.data),
+  assign: (taskId: number, assigneeId: number | null) =>
+    apiClient
+      .patch<TaskResponse>(`/tasks/${taskId}/assignee`, { assigneeId })
+      .then((r) => r.data),
+  move: (taskId: number, targetListId: number, position: number) =>
+    apiClient
+      .patch<TaskResponse>(`/tasks/${taskId}/move`, { targetListId, position })
+      .then((r) => r.data),
+  remove: (taskId: number) => apiClient.delete(`/tasks/${taskId}`),
+};
+
+export const commentApi = {
+  listForTask: (taskId: number) =>
+    apiClient
+      .get<CommentResponse[]>(`/tasks/${taskId}/comments`)
+      .then((r) => r.data),
+  create: (taskId: number, content: string) =>
+    apiClient
+      .post<CommentResponse>(`/tasks/${taskId}/comments`, { content })
+      .then((r) => r.data),
+  remove: (commentId: number) => apiClient.delete(`/comments/${commentId}`),
+};
+export const notificationApi = notificationApiMock;
 
 export { resetMockDb } from "./mock/db";
