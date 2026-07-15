@@ -1,15 +1,13 @@
-export const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API !== "false";
 import { apiClient } from "./api-client";
 import type {
   AuthResponse,
   BoardResponse,
   CommentResponse,
+  NotificationResponse,
   TaskListResponse,
   TaskResponse,
   UserResponse,
 } from "./types";
-
-import { notificationApiMock } from "./api-mock";
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -113,6 +111,12 @@ export const commentApi = {
       .then((r) => r.data),
   remove: (commentId: number) => apiClient.delete(`/comments/${commentId}`),
 };
-export const notificationApi = notificationApiMock;
 
-export { resetMockDb } from "./mock/db";
+export const notificationApi = {
+  list: () =>
+    apiClient.get<NotificationResponse[]>("/notifications").then((r) => r.data),
+  markAsRead: (id: number) =>
+    apiClient
+      .patch<NotificationResponse>(`/notifications/${id}/read`)
+      .then((r) => r.data),
+};
