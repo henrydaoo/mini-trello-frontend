@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
-import { clearStoredToken, clearStoredUser, getStoredToken, getStoredUser, setStoredToken, setStoredUser } from "@/lib/storage";
+import { clearToken, getToken, setToken } from "@/lib/api-client";
 import type { UserResponse } from "@/lib/types";
 
 interface AuthContextValue {
@@ -16,24 +16,26 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const USER_KEY = "mini-trello-user";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const token = getStoredToken();
-    const storedUser = getStoredUser();
+    const token = getToken();
+    const storedUser = window.localStorage.getItem(USER_KEY);
     if (token && storedUser) {
-      setUser(storedUser);
+      setUser(JSON.parse(storedUser));
     }
     setIsLoading(false);
   }, []);
 
   async function login(username: string, password: string) {
     const res = await authApi.login(username, password);
-    setStoredToken(res.token);
-    setStoredUser(res.user);
+    setToken(res.token);
+    window.localStorage.setItem(USER_KEY, JSON.stringify(res.user));
     setUser(res.user);
     router.push("/boards");
   }
@@ -44,8 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
-    clearStoredToken();
-    clearStoredUser();
+    clearToken();
+    window.localStorage.removeItem(USER_KEY);
     setUser(null);
     router.push("/login");
   }

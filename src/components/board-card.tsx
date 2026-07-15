@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { BoardResponse } from "@/lib/types";
-import { boardApi } from "@/lib/api";
+import { useDeleteBoard } from "@/hooks/queries/use-boards";
 import { extractErrorMessage } from "@/lib/api-client";
 import { initials } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,21 +19,18 @@ import { Button } from "@/components/ui/button";
 
 interface BoardCardProps {
   board: BoardResponse;
-  onDeleted: (boardId: number) => void;
 }
 
-export function BoardCard({ board, onDeleted }: BoardCardProps) {
+export function BoardCard({ board }: BoardCardProps) {
+  const deleteBoard = useDeleteBoard();
   const allMembers = [{ userId: board.ownerId, username: board.ownerUsername, email: "" }, ...board.members];
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!window.confirm(`Delete "${board.name}"? This can't be undone.`)) return;
-    try {
-      await boardApi.remove(board.id);
-      onDeleted(board.id);
-      toast.success("Board deleted");
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    }
+    deleteBoard.mutate(board.id, {
+      onSuccess: () => toast.success("Board deleted"),
+      onError: (error) => toast.error(extractErrorMessage(error)),
+    });
   }
 
   return (

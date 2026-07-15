@@ -5,10 +5,10 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { taskApi } from "@/lib/api";
+import { useCreateTask } from "@/hooks/queries/use-tasks";
 import { extractErrorMessage } from "@/lib/api-client";
 import { taskCreateSchema, type TaskCreateInput } from "@/lib/validations";
-import type { BoardMemberResponse, TaskResponse } from "@/lib/types";
+import type { BoardMemberResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,12 +26,11 @@ import {
 interface CreateTaskDialogProps {
   listId: number;
   members: BoardMemberResponse[];
-  onCreated: (task: TaskResponse) => void;
 }
 
-export function CreateTaskDialog({ listId, members, onCreated }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ listId, members }: CreateTaskDialogProps) {
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createTask = useCreateTask(listId);
   const {
     register,
     handleSubmit,
@@ -43,25 +42,24 @@ export function CreateTaskDialog({ listId, members, onCreated }: CreateTaskDialo
     defaultValues: { priority: "MEDIUM", assigneeId: "" },
   });
 
-  async function onSubmit(data: TaskCreateInput) {
-    setIsSubmitting(true);
-    try {
-      const task = await taskApi.create(listId, {
+  function onSubmit(data: TaskCreateInput) {
+    createTask.mutate(
+      {
         title: data.title,
         description: data.description || undefined,
         assigneeId: data.assigneeId ? Number(data.assigneeId) : null,
         priority: data.priority,
         dueDate: data.dueDate || null,
-      });
-      onCreated(task);
-      toast.success("Task added");
-      setOpen(false);
-      reset({ priority: "MEDIUM", assigneeId: "", title: "", description: "", dueDate: "" });
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    } finally {
-      setIsSubmitting(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          toast.success("Task added");
+          setOpen(false);
+          reset({ priority: "MEDIUM", assigneeId: "", title: "", description: "", dueDate: "" });
+        },
+        onError: (error) => toast.error(extractErrorMessage(error)),
+      }
+    );
   }
 
   return (
@@ -138,8 +136,8 @@ export function CreateTaskDialog({ listId, members, onCreated }: CreateTaskDialo
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Adding…" : "Add task"}
+            <Button type="submit" disabled={createTask.isPending}>
+              {createTask.isPending ? "Adding…" : "Add task"}
             </Button>
           </DialogFooter>
         </form>
