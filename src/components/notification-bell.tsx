@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { toast } from "sonner";
-import { notificationApi } from "@/lib/api";
+import { useMarkNotificationRead, useNotificationsQuery } from "@/hooks/queries/use-notifications";
 import { extractErrorMessage } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/utils";
 import type { NotificationResponse } from "@/lib/types";
@@ -18,43 +16,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const router = useRouter();
-
-  async function loadNotifications() {
-    try {
-      const data = await notificationApi.list();
-      setNotifications(data);
-    } catch (error) {
-      // A failed notification fetch shouldn't block the rest of the app —
-      // just skip silently and try again next time the bell is opened.
-    }
-  }
-
-  useEffect(() => {
-    loadNotifications();
-  }, []);
+  const { data: notifications = [], refetch } = useNotificationsQuery();
+  const markAsRead = useMarkNotificationRead();
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  async function handleClick(notification: NotificationResponse) {
-    try {
-      if (!notification.isRead) {
-        await notificationApi.markAsRead(notification.id);
-        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n)));
-      }
-      setIsOpen(false);
-    } catch (error) {
-      toast.error(extractErrorMessage(error));
-    }
+  function handleClick(notification: NotificationResponse) {
+    if (notification.isRead) return;
+    markAsRead.mutate(notification.id, {
+      onError: (error) => toast.error(extractErrorMessage(error)),
+    });
   }
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open);
-      if (open) loadNotifications();
-    }}>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) refetch();
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />
