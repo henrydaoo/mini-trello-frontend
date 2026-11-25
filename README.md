@@ -13,9 +13,6 @@ The platform focuses on:
 - Board-scoped access control for owners and members.
 - Kanban workflows: ordered lists, ordered tasks, assignment, and moving tasks between lists.
 - Notifications delivered through each user's preferred channel.
-- A consistent validation and error contract shared by the REST API and the web client.
-
-The backend is the primary focus of the project. The frontend is a lightweight Next.js client that consumes the API.
 
 ## Table of Contents
 
@@ -24,14 +21,10 @@ The backend is the primary focus of the project. The frontend is a lightweight N
   - [For Users](#for-users)
   - [For Board Owners](#for-board-owners)
 - [System Architecture](#system-architecture)
-  - [Architecture Overview](#architecture-overview)
-  - [Layer Responsibilities](#layer-responsibilities)
-  - [Communication Patterns](#communication-patterns)
 - [Database Design](#database-design)
 - [Technology Stack](#technology-stack)
   - [Backend](#backend)
   - [Frontend](#frontend)
-- [Security](#security)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
   - [Prerequisites](#prerequisites)
@@ -64,9 +57,7 @@ The backend is the primary focus of the project. The frontend is a lightweight N
 
 ## System Architecture
 
-### Architecture Overview
-
-Mini Trello is a layered backend serving a separately deployed web client. The backend owns all business rules and persistence; the frontend only calls the REST API.
+The backend owns all business rules and persistence; the frontend only calls its REST API.
 
 ```mermaid
 flowchart TB
@@ -85,26 +76,6 @@ flowchart TB
     Service --> Repository
     Repository --> DB
 ```
-
-### Layer Responsibilities
-
-| Layer | Responsibility |
-|---|---|
-| Security | JWT validation and authenticated principal |
-| Controller | HTTP mapping, request validation, response shaping |
-| Service | Business rules, authorization checks, transactions |
-| Repository | Persistence and queries through Spring Data JPA |
-| Entity | JPA domain model and relationships |
-| DTO | API request/response contracts, separate from entities |
-| Exception | Custom exceptions mapped to a standard error response by `@ControllerAdvice` |
-
-### Communication Patterns
-
-| Interaction | Protocol | Reason |
-|---|---|---|
-| Frontend to Backend | REST (JSON) | Synchronous user-facing request/response |
-| Authentication | `Authorization: Bearer <JWT>` | Stateless sessions, no server-side session store |
-| Backend to PostgreSQL | JDBC via Hibernate | Transactional relational storage |
 
 ## Database Design
 
@@ -203,17 +174,6 @@ erDiagram
 - react-hook-form with Zod
 - axios (JWT interceptor)
 - sonner (toasts)
-
-## Security
-
-- JWT-based stateless authentication.
-- Passwords hashed with BCrypt.
-- Role-based access control (`USER` / `ADMIN`).
-- Board-level permissions: owner-only operations are separated from member operations.
-- Comment deletion restricted to the comment author.
-- Request validation with Bean Validation on every write endpoint.
-- Entities are never exposed directly; all responses go through DTOs.
-- Secrets (database credentials, JWT signing key) are supplied through environment configuration and never committed.
 
 ## Project Structure
 
